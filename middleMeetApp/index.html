@@ -88,7 +88,7 @@
         {
           directionsDisplay = new google.maps.DirectionsRenderer();
           var mapOptions = {
-            center: {lat: 52.83341997014214, lng: -96.78543090820312},
+            center: {lat: 32.83341997014214, lng: -96.78543090820312},
             zoom: 10
           };
           
@@ -233,7 +233,6 @@
           if (status == google.maps.DirectionsStatus.OK) {
             $.ajax({
               type: 'POST',
-              //url: "http://localhost:49992/api/parseDirections",
               url: "api/parseDirections",
               data: convertReponseToJSON(response),
               dataType: "json",

@@ -1,0 +1,412 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <link rel="stylesheet" href="http://code.jquery.com/ui/1.11.2/themes/smoothness/jquery-ui.css">
+    <style type="text/css">
+      html, body, #map-canvas { height: 100%; margin: 0; padding: 0;}
+       .autoComplete {
+        background-color: #fff;
+        padding: 0 11px 0 13px;
+        width: 400px;
+        font-family: Roboto;
+        font-size: 15px;
+        font-weight: 300;
+        text-overflow: ellipsis;
+        display: block;
+      }
+      #locationField {
+        position: absolute;
+        top: 30px;
+        left: 100px;
+        z-index: 1;
+      }
+      .ui-dialog-titlebar {
+        display: none;
+      }
+      .ui-dialog .ui-dialog-content
+      {
+        padding: 0 0;
+        overflow: hidden;
+      }
+      .progress-label {
+        position: absolute;
+        font-weight: bold;
+        text-shadow: 1px 1px 0 #fff;
+        padding: .5em .5em;
+      }
+      .ui-progressbar .ui-progressbar-overlay {
+        filter: alpha(opacity=5); /* support: IE8 */
+        opacity: 0.05;
+      }
+    </style>
+    <script src="http://code.jquery.com/jquery-2.1.1.min.js"></script>
+    <script src="https://code.jquery.com/ui/1.11.2/jquery-ui.min.js"></script>
+    <script type="text/javascript"
+      src="https://maps.googleapis.com/maps/api/js?libraries=drawing,places&key=AIzaSyB4vBHSil2NPSXZOurCMwDvRSIEn3zLTaY">
+    </script>
+    <script type="text/javascript">
+      $(function() 
+      {
+        //Configure Dialog
+        $("#dialog").dialog({
+          autoOpen: false,
+          resizable: false,
+          width: 260,
+          heigh: 60,
+          minHeight: 0,
+          modal: true,
+          show: {
+            effect: "fade",
+            duration: 100
+          },
+          hide: {
+            effect: "fade",
+            duration: 100
+          }
+        });
+
+        $("#progressbar").progressbar({
+          value: false
+        });
+
+        //Wire up init after load
+        google.maps.event.addDomListener(window, 'load', initialize);
+
+
+        //Global Vars
+        var directionsDisplay;
+        var directionsService = new google.maps.DirectionsService();
+        var map;
+        var locations = [];
+        var drawingManager;
+        var midpointMarker;
+        var autoCompleteEnd, autoCompleteStart;
+        var geocoder = new google.maps.Geocoder();        
+        
+        //init
+        function initialize()
+        {
+          directionsDisplay = new google.maps.DirectionsRenderer();
+          var mapOptions = {
+            center: {lat: 32.83341997014214, lng: -96.78543090820312},
+            zoom: 10
+          };
+          
+          map = new google.maps.Map($('#map-canvas')[0], mapOptions);
+          directionsDisplay.setMap(map);
+          directionsDisplay.setPanel($('#log')[0]);
+
+          //set Location
+          geoLocate(map);
+
+          //drawing manager options
+          drawingManager = new google.maps.drawing.DrawingManager( {
+            drawingMode: google.maps.drawing.OverlayType.MARKER,
+            drawingControl: true,
+            drawingControlOptions: {
+              position: google.maps.ControlPosition.TOP_CENTER,
+              drawingModes: [ google.maps.drawing.OverlayType.MARKER ]
+            },
+            markerOptions : {
+              animation: google.maps.Animation.DROP,
+              draggable: true,
+              fillColor: 'black'
+            }
+          });
+          drawingManager.setMap(map);
+
+          //For autocmoplete textboxes
+          autoCompleteStart = new google.maps.places.Autocomplete(
+          /** @type {HTMLInputElement} */($('#autoCompleteStart')[0]),
+          { types: ['geocode'] });
+
+          autoCompleteEnd = new google.maps.places.Autocomplete(
+          /** @type {HTMLInputElement} */($('#autoCompleteEnd')[0]),
+          { types: ['geocode'] });
+
+          //wire up events
+          google.maps.event.addListener(drawingManager, 'markercomplete', function(marker) {
+            locations.push(marker);
+            codeLatLng(marker.getPosition(), locations.length);
+            google.maps.event.addListener(marker, 'dragend', markerAddedEvent);
+            disableDrawing();
+          });
+
+          google.maps.event.addListener(autoCompleteStart, 'place_changed', function() {
+            var place = autoCompleteStart.getPlace();
+            if(!place.geometry)
+              return;
+            autoCompleteFinish(0, "Start Point", place.geometry.location);
+          });
+          google.maps.event.addListener(autoCompleteEnd, 'place_changed', function() {
+            var place = autoCompleteEnd.getPlace();
+            if(!place.geometry)
+              return;
+            autoCompleteFinish(1, "End Point", place.geometry.location);
+          });
+            
+        }
+        
+        ///////////////////////////////////////////////////////////////////////
+        //Event Handlers
+        function autoCompleteFinish(index, title, latLng) {
+          //remove old marker 
+          if (locations[index])
+            locations[index].setMap(null);
+          //add marker
+          var marker = new google.maps.Marker({
+            position: latLng,
+            map: map,
+            title: title
+          });
+          //push marker to locations array
+          locations[index] = marker;
+          //check to disableDrawing
+          disableDrawing();
+        }
+
+        function markerAddedEvent(theMarker) {
+          if (theMarker.latLng.equals(locations[0].position)) {
+            codeLatLng(theMarker.latLng, 1);
+          }
+          else if (theMarker.latLng.equals(locations[1].position)) {
+            codeLatLng(theMarker.latLng, 2);
+          }
+        }
+        ///////////////////////////////////////////////////////////////////////
+        //Route calculation Logic
+        function calcRoute() {
+          if (midpointMarker != null)
+            midpointMarker.setMap(null);
+          if (locations.length < 2)
+            return;
+          $("#dialog").dialog("open");
+          var start = locations[0].getPosition();
+          var end = locations[1].getPosition();
+          //callMyAPI(start.toString(), end.toString());
+
+          var request = {
+            origin: start,
+            destination: end,
+            travelMode: google.maps.TravelMode.DRIVING
+          };
+          directionsService.route(request, APIProcessDirectionsResults);
+        }
+        //function callMyAPI(start, end) {
+        //  $.ajax({
+        //    //type: 'GET',
+        //    url: "http://localhost:49992/api/getDirections",
+        //    data: { start: start, end: end },
+        //    dataType: "json",
+        //    xhrFields: {
+        //      withCredentials: true
+        //    },
+        //    success: function (data) {
+        //      var myLatlng = new google.maps.LatLng(data.lat, data.lng);
+        //      // To add the marker to the map, use the 'map' property
+        //      midpointMarker = new google.maps.Marker({
+        //        position: myLatlng,
+        //        map: map,
+        //        title: "Mid Point"
+        //      });
+        //      $("#dialog").dialog("close");
+
+        //      //pan the map to the midpoint location
+        //      map.panTo(myLatlng);
+        //      var request = {
+        //        origin: start,
+        //        destination: myLatlng,
+        //        travelMode: google.maps.TravelMode.DRIVING
+        //      };
+        //      directionsService.route(request, processDirectionResults);
+
+        //    },
+        //    error: function (data) {
+        //      $('#log').text(data.statusText);
+        //    }
+        //  });
+
+        //}
+        ///////////////////////////////////////////////////////////////////////
+        //Callbacks
+        function APIProcessDirectionsResults(response, status) {
+          if (status == google.maps.DirectionsStatus.OK) {
+            $.ajax({
+              type: 'POST',
+              //url: "http://localhost:49992/api/parseDirections",
+              url: "http://www.diffusedreality.com/api/parseDirections",
+              data: convertReponseToJSON(response),
+              dataType: "json",
+              xhrFields: {
+                withCredentials: true
+              },
+              success: function (data) {
+                console.log("success");
+                var myLatlng = new google.maps.LatLng(data.lat, data.lng);
+                // To add the marker to the map, use the 'map' property
+                midpointMarker = new google.maps.Marker({
+                  position: myLatlng,
+                  map: map,
+                  title: "Mid Point"
+                });
+                $("#dialog").dialog("close");
+
+                //pan the map to the midpoint location
+                map.panTo(myLatlng);
+                var request = {
+                  origin: response.routes[0].legs[0].start_location,
+                  destination: myLatlng,
+                  travelMode: google.maps.TravelMode.DRIVING
+                };
+                directionsService.route(request, processDirectionResults);
+
+              },
+              error: function (data) {
+                $('#log').text(data.statusText);
+              }
+            });
+
+          }
+        }
+
+        function processDirectionResults(response, status) {
+          if (status == google.maps.DirectionsStatus.OK) {
+            directionsDisplay.setDirections(response);
+            enableDrawing();
+            removeMarkers();
+            codeLatLng(midpointMarker.getPosition(), 2);
+          }
+          else {
+            alert("Directions failed due to: " + status);
+          }
+        }
+        ///////////////////////////////////////////////////////////////////////
+        //GeoLocation
+        function geoLocate(map) {
+          if (navigator.geolocation) {
+            navigator.geolocation.getCurrentPosition(function (position) {
+              var geolocation = new google.maps.LatLng(
+                  position.coords.latitude, position.coords.longitude);
+              autoCompleteStart.setBounds(new google.maps.LatLngBounds(geolocation,
+                  geolocation));
+              autoCompleteEnd.setBounds(new google.maps.LatLngBounds(geolocation,
+                  geolocation));
+              map.setCenter(geolocation);
+            });
+          }
+        }
+        ///////////////////////////////////////////////////////////////////////
+        //Helper Methods
+        function disableDrawing()
+        {
+          if(locations.length > 1)
+            {
+              drawingManager.setOptions( {
+                drawingControl: false,
+                drawingMode: null
+
+              });
+              calcRoute();
+            }
+        }
+
+        function enableDrawing()
+        {
+          if (locations.length > 1) {
+            drawingManager.setOptions({
+              drawingControl: true,
+              drawingMode: google.maps.drawing.OverlayType.MARKER
+            });
+          }
+        }
+
+        function removeMarkers() {
+          while (locations.length > 0)
+          {
+            locations[locations.length-1].setMap(null);
+            locations.pop();
+          }
+          midpointMarker.setMap(null);
+        }
+
+        function codeLatLng(latLng, markerIndex) 
+        {
+          geocoder.geocode({'latLng': latLng}, function(results, status) {
+            if (status == google.maps.GeocoderStatus.OK) {
+              if (results[0]) {
+                if(markerIndex == 1)
+                {
+                  $("#autoCompleteStart").val(results[0].formatted_address);
+                }
+                if(markerIndex == 2 )
+                {
+                  $("#autoCompleteEnd").val(results[0].formatted_address);
+                }
+              }
+            } else {
+              alert("Geocoder failed due to: " + status);
+            }
+          });
+        }
+
+        //this function exists because the response object from a directionServiceResult isn't JSON, but JSON-like
+        function convertReponseToJSON(response) {
+          var result = {};
+
+          var routes = [];
+          result.routes = routes;
+          var route = {};
+          routes[0] = route;
+          var legs = [];
+          route.legs = legs;
+          var leg = {};
+          legs[0] = leg;
+
+          //Object distance declaration
+          keyValueObj = function (textIN, valueIN) { this.text = textIN; this.value = valueIN; }
+          latlngObj = function (latIN, lngIN) { this.lat = latIN; this.lng = lngIN };
+
+          var mainLeg = response.routes[0].legs[0];
+
+          leg.distance = new keyValueObj(mainLeg.distance.text, mainLeg.distance.value);
+          leg.duration = new keyValueObj(mainLeg.duration.text, mainLeg.duration.value);
+          leg.start_location = new latlngObj(mainLeg.start_location.lat(), mainLeg.start_location.lng());
+          leg.end_location = new latlngObj(mainLeg.end_location.lat(), mainLeg.end_location.lng());
+
+          var steps = [];
+          leg.steps = steps;
+
+          var i = 0;
+          for (i = 0; i < mainLeg.steps.length; i++) {
+            var currentStep = mainLeg.steps[i];
+            var step = {};
+            step.distance = new keyValueObj(currentStep.distance.text, currentStep.distance.value);
+            step.duration = new keyValueObj(currentStep.duration.text, currentStep.duration.value);
+            step.start_location = new latlngObj(currentStep.start_location.lat(), currentStep.start_location.lng());
+            step.end_location = new latlngObj(currentStep.end_location.lat(), currentStep.end_location.lng());
+            steps[i] = step;
+          }
+
+          return result;
+        }
+        ///////////////////////////////////////////////////////////////////////
+      });
+    </script>
+  </head>
+  <body>
+<div id="body">
+  <div id="locationField">
+    <input id="autoCompleteStart" class="autoComplete" placeholder="Enter your address" type="text"></input>
+    <input id="autoCompleteEnd" class="autoComplete" placeholder="Enter your address" type="text"></input>
+  </div>
+  <div id="map-canvas" style="height:480px;"></div>
+  <div id="locations"></div>
+  <div id="dialog"><div id="progressbar"><div class="progress-label">Calculating mid point...</div></div></div>
+  
+  <div id="log"></div>
+
+</div>
+
+
+  </body>
+</html>

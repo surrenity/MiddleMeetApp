@@ -88,7 +88,7 @@
         {
           directionsDisplay = new google.maps.DirectionsRenderer();
           var mapOptions = {
-            center: {lat: 32.83341997014214, lng: -96.78543090820312},
+            center: {lat: 52.83341997014214, lng: -96.78543090820312},
             zoom: 10
           };
           
@@ -234,7 +234,7 @@
             $.ajax({
               type: 'POST',
               //url: "http://localhost:49992/api/parseDirections",
-              url: "http://www.diffusedreality.com/api/parseDirections",
+              url: "api/parseDirections",
               data: convertReponseToJSON(response),
               dataType: "json",
               success: function (data) {
@@ -279,9 +279,21 @@
         }
         ///////////////////////////////////////////////////////////////////////
         //GeoLocation
-        function geoLocate(map) {
+        function geoLocate() {
+          //call geoLocatorByIP
+          var jqxhr = $.getJSON("api/geoLocateByIP", function (data) {
+            var city = data;
+            geocoder.geocode({ address: city }, function (results, status) {
+              if (status == google.maps.GeocoderStatus.OK) {
+                if (results[0].geometry.location)
+                  map.setCenter(results[0].geometry.location);
+              }
+            });
+          });
+
           if (navigator.geolocation) {
-            navigator.geolocation.getCurrentPosition(function (position) {
+            jqxhr.abort(); // abort the other request because the user agreed to lookup their location
+            var a = navigator.geolocation.getCurrentPosition(function (position) {
               var geolocation = new google.maps.LatLng(
                   position.coords.latitude, position.coords.longitude);
               autoCompleteStart.setBounds(new google.maps.LatLngBounds(geolocation,
@@ -291,6 +303,7 @@
               map.setCenter(geolocation);
             });
           }
+          
         }
         ///////////////////////////////////////////////////////////////////////
         //Helper Methods

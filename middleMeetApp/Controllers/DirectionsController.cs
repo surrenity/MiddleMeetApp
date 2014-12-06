@@ -12,51 +12,11 @@ namespace diffusedreality.middleMeetApp.Controllers
 {
     public class DirectionsController : ApiController
     {
-        [Route("api/getDirections")]
-        public LatLng getDirections(string start, string end)
-        {
-            LatLng origin = ConvertParameterToLatLng(start);
-            LatLng destination = ConvertParameterToLatLng(end);
-            return callGoogleAPI(origin, destination);
-        }
-
         [Route("api/parseDirections")]
         [HttpPost]
-        public LatLng parseDirections(DirectionsResult result)
+        public LatLng postParseDirections(DirectionsResult result)
         {
           LatLng latlng = processDirectionResult(result);
-          return latlng;
-        }
-
-        private LatLng ConvertParameterToLatLng(string start)
-        {
-          var param = start.Trim('(').Trim(')').Split(',');
-          LatLng latlng = new LatLng();
-          double temp = 0;
-          double.TryParse(param[0], out temp);
-          latlng.lat = temp;
-          double.TryParse(param[1], out temp);
-          latlng.lng = temp;
-          return latlng;
-        }
-
-        private LatLng callGoogleAPI(LatLng start, LatLng end)
-        {
-          LatLng latlng = new LatLng();
-          using (var client = new HttpClient())
-          {
-            client.BaseAddress = new Uri("https://maps.googleapis.com/");
-            client.DefaultRequestHeaders.Accept.Clear();
-            client.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
-
-            HttpResponseMessage response = client.GetAsync(string.Format("maps/api/directions/json?origin=({0},{1})&destination=({2},{3})&API_KEY=AIzaSyB4vBHSil2NPSXZOurCMwDvRSIEn3zLTaY", start.lat, start.lng, end.lat, end.lng)).Result;
-            if (response.IsSuccessStatusCode)
-            {
-              DirectionsResult result = response.Content.ReadAsAsync<DirectionsResult>().Result;
-              latlng = processDirectionResult(result);
-            }
-          }
-
           return latlng;
         }
 

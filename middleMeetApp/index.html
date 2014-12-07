@@ -38,6 +38,15 @@
         filter: alpha(opacity=5); /* support: IE8 */
         opacity: 0.05;
       }
+      #places {
+        display: none;
+        padding: 10px;
+        background: #9933FF;
+      }
+      #getPlacesBtn {
+        padding: 10px;
+        width: 100%;
+      }
     </style>
     <script src="http://code.jquery.com/jquery-2.1.1.min.js"></script>
     <script src="https://code.jquery.com/ui/1.11.2/jquery-ui.min.js"></script>
@@ -69,6 +78,8 @@
           value: false
         });
 
+        $("#getPlacesBtn").click(getPlaces);
+
         //Wire up init after load
         google.maps.event.addDomListener(window, 'load', initialize);
 
@@ -80,6 +91,7 @@
         var locations = [];
         var drawingManager;
         var midpointMarker;
+        var midpointInfowindow;
         var autoCompleteEnd, autoCompleteStart;
         var geocoder = new google.maps.Geocoder();        
         
@@ -114,6 +126,9 @@
             }
           });
           drawingManager.setMap(map);
+
+          //for infoWindow
+          midpointInfowindow = new google.maps.InfoWindow();
 
           //For autocmoplete textboxes
           autoCompleteStart = new google.maps.places.Autocomplete(
@@ -245,6 +260,14 @@
                   map: map,
                   title: "Mid Point"
                 });
+                
+                midpointInfowindow.setOptions({
+                  content: "Your midpoint!",
+                  position: myLatlng,
+                  pixelOffset: new google.maps.Size(0, -30),
+                  disableAutoPan: true
+                });
+                midpointInfowindow.open(map);
                 $("#dialog").dialog("close");
 
                 //pan the map to the midpoint location
@@ -271,6 +294,7 @@
             enableDrawing();
             removeMarkers();
             codeLatLng(midpointMarker.getPosition(), 2);
+            $('#places').show("fold", 1000);
           }
           else {
             alert("Directions failed due to: " + status);
@@ -292,14 +316,16 @@
 
           if (navigator.geolocation) {
             jqxhr.abort(); // abort the other request because the user agreed to lookup their location
-            var a = navigator.geolocation.getCurrentPosition(function (position) {
+            
+            navigator.geolocation.getCurrentPosition(function (position) {
               var geolocation = new google.maps.LatLng(
                   position.coords.latitude, position.coords.longitude);
               autoCompleteStart.setBounds(new google.maps.LatLngBounds(geolocation,
                   geolocation));
               autoCompleteEnd.setBounds(new google.maps.LatLngBounds(geolocation,
                   geolocation));
-              map.setCenter(geolocation);
+              if (midpointMarker == null)
+                map.setCenter(geolocation);
             });
           }
           
@@ -398,6 +424,70 @@
 
           return result;
         }
+
+        //GetPlaces
+        var placeInfoWindow;
+        var placesService;
+        function getPlaces() {
+          //turn off drawing
+          drawingManager.setOptions({
+            drawingControl: false,
+            drawingMode: null
+          });
+
+          //move center of map
+          map.setCenter(midpointMarker.getPosition());
+          map.panBy(0, -100);
+
+          placesService = new google.maps.places.PlacesService(map);
+
+          placeInfoWindow = new google.maps.InfoWindow();
+          
+          //start requesting.
+          var request = {
+            location: midpointMarker.getPosition(),
+            radius: 1000,
+            types: ['store', 'gas_station', 'cafe', 'food', 'restaurant']
+          };
+          placesService.nearbySearch(request, processPlacesResults);
+        }
+
+        function processPlacesResults(results, status) {
+          if (status == google.maps.places.PlacesServiceStatus.OK) {
+            for (var i = 0; i < results.length; i++) {
+              createMarker(results[i]);
+            }
+          }
+        }
+
+        function createMarker(place) {
+          var placeLoc = place.geometry.location;
+          var marker = new google.maps.Marker({
+            map: map,
+            position: place.geometry.location
+          });
+
+          google.maps.event.addListener(marker, 'click', function () {
+
+            placesService.getDetails({ placeId: place.place_id }, function (results, status) {
+              if (status == google.maps.places.PlacesServiceStatus.OK) {
+                var photo = "";
+                if (results.photos) {
+                  photo = results.photos[0];
+                  photo = photo.getUrl({ maxHeight: 100, maxWidth: 100 })
+                }
+                else
+                  photo = results.icon;
+
+                placeInfoWindow.setContent(results.name +
+                           "<br/>" + results.formatted_address +
+                           "<br/><img src='" + photo + "' />" 
+                           );
+              }
+            });
+            placeInfoWindow.open(map, this);
+          });
+        }
         ///////////////////////////////////////////////////////////////////////
       });
     </script>
@@ -407,10 +497,12 @@
   <div id="locationField">
     <input id="autoCompleteStart" class="autoComplete" placeholder="Enter your address" type="text"></input>
     <input id="autoCompleteEnd" class="autoComplete" placeholder="Enter your address" type="text"></input>
+    <div id="places"><input id="getPlacesBtn" value="Find Nearby Places" type="button" /></div>
   </div>
   <div id="map-canvas" style="height:480px;"></div>
   <div id="locations"></div>
   <div id="dialog"><div id="progressbar"><div class="progress-label">Calculating mid point...</div></div></div>
+  
   
   <div id="log"></div>
 

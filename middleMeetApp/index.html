@@ -451,8 +451,8 @@
         });
 
         //move center of map
-        map.setCenter(midpointMarker.getPosition());
         map.setZoom(16);
+        map.setCenter(midpointMarker.getPosition());
 
         placesService = new google.maps.places.PlacesService(map);
 
@@ -510,6 +510,10 @@
                          "<br/>" + results.formatted_address +
                          "<br/><img src='" + photo + "' /></div>"
                          );
+
+              //set active class
+              $('#resultsGroup a').removeClass('list-group-item-success');
+              $('#' + place.place_id).addClass('list-group-item-success');
             }
           });
           placeInfoWindow.open(map, this);

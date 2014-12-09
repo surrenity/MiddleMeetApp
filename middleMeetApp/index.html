@@ -62,9 +62,13 @@
     position: absolute;
     top: 60px;
     left: 100px;
-    max-width: 400px;
-    max-height: 600px;
+    max-width: 480px;
+    max-height: 640px;
     z-index: 1;
+  }
+  .markerContent{
+    width: 230px;
+    overflow: hidden;
   }
   </style>
   <script src="http://code.jquery.com/jquery-2.1.1.min.js"></script>
@@ -448,7 +452,6 @@
 
         //move center of map
         map.setCenter(midpointMarker.getPosition());
-        map.panBy(0, -100);
         map.setZoom(16);
 
         placesService = new google.maps.places.PlacesService(map);
@@ -503,9 +506,9 @@
               else
                 photo = results.icon;
 
-              placeInfoWindow.setContent(results.name +
+              placeInfoWindow.setContent("<div class=\"markerContent\">" + results.name +
                          "<br/>" + results.formatted_address +
-                         "<br/><img src='" + photo + "' />"
+                         "<br/><img src='" + photo + "' /></div>"
                          );
             }
           });
@@ -566,41 +569,11 @@
     </div>
   </div>
 
-
-
+  <!--Hidden to start-->
   <div id="dialog"><div id="progressbar"><div class="progress-label">Calculating mid point...</div></div></div>
-
 
   <div id="log"></div>
 
-
-
-
-
-
-
-
-
-
-
-  <!--
-
-
-  <div id="body">
-    <div id="locationField">
-      <input id="autoCompleteStart" class="autoComplete" placeholder="Enter your address" type="text"></input>
-      <input id="autoCompleteEnd" class="autoComplete" placeholder="Enter your address" type="text"></input>
-      <div id="places"><input id="getPlacesBtn" value="Find Nearby Places" type="button" /></div>
-    </div>
-    <div id="map-canvas" style="height:480px;"></div>
-    <div id="locations"></div>
-    <div id="dialog"><div id="progressbar"><div class="progress-label">Calculating mid point...</div></div></div>
-
-
-    <div id="log"></div>
-
-  </div>
-    -->
   <!-- Include all compiled plugins (below), or include individual files as needed -->
   <script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.1/js/bootstrap.min.js"></script>
 </body>

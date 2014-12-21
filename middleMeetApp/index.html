@@ -152,7 +152,8 @@
           markerOptions: {
             animation: google.maps.Animation.DROP,
             draggable: true,
-            fillColor: 'black'
+            fillColor: 'black',
+            icon: 'Images/mapMarker.png'
           }
         });
         drawingManager.setMap(map);
@@ -513,7 +514,7 @@
           map.panTo(place.marker.position);
           //Wire up directions click
           $("#getDirectionsBtn").bind("click", function () {
-            getDirections(place.place_id)
+            getDirections(place)
           });
           google.maps.event.trigger(place.marker, 'click');
         });
@@ -544,10 +545,10 @@
         });
       }
 
-      function getDirections(placeID) {
+      function getDirections(place) {
         var request = {
           origin: locations[0].getPosition(),
-          destination: places[placeID].getPosition(),
+          destination: place.marker.position,
           travelMode: google.maps.TravelMode.DRIVING
         };
         directionsService.route(request, processDirectionResults);

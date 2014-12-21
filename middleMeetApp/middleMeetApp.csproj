@@ -73,6 +73,7 @@
   </ItemGroup>
   <ItemGroup>
     <Content Include="Global.asax" />
+    <Content Include="Images\mapMarker.png" />
     <Content Include="index.html" />
     <Content Include="powered-by-google\android\res\drawable-hdpi\powered-by-google-on-non-white.png" />
     <Content Include="powered-by-google\android\res\drawable-hdpi\powered-by-google-on-white.png" />
